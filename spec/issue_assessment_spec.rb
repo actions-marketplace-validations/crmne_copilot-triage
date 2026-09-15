@@ -216,7 +216,6 @@ RSpec.describe IssueAssessment, type: :task do
     end
 
     it 'uses a configured public guide link inside the reply without a sources footer' do
-      File.write('docs/tools.md', '# Tools')
       selection = JSON.generate(labels: [], reply: nil, files: ['docs/tools.md'])
       answer = JSON.generate(comment: 'Define execute on your tool class. See [[docs/tools.md]].',
                              sources: ['docs/tools.md'])
