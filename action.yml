@@ -1,0 +1,59 @@
+name: Copilot Triage
+description: Label issues and answer questions with bounded Copilot prompts and cached responses.
+author: Carmine Paolino
+branding:
+  icon: message-circle
+  color: blue
+
+inputs:
+  copilot-token:
+    description: Token with Copilot Requests permission and an available Copilot allowance.
+    required: true
+  github-token:
+    description: Token for reading reports and publishing labels and comments.
+    default: ${{ github.token }}
+  config:
+    description: Repository-relative policy file on the default branch.
+    default: .github/triage.yml
+  kind:
+    description: issue or discussion; inferred from the triggering event when omitted.
+    default: ${{ github.event.discussion && 'discussion' || 'issue' }}
+  number:
+    description: Issue or discussion number; inferred from the event when omitted.
+    default: ${{ github.event.issue.number || github.event.discussion.number }}
+  model:
+    description: Copilot model ID.
+    default: gpt-5.6-luna
+  dry-run:
+    description: Preview the decision without publishing. Uncached prompts still consume credits.
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v7
+      with:
+        ref: ${{ github.event.repository.default_branch }}
+        persist-credentials: false
+        token: ${{ inputs.github-token }}
+    - uses: actions/cache@v6
+      with:
+        path: ${{ runner.temp }}/copilot-triage-cache
+        key: triage-${{ inputs.kind }}-${{ inputs.number }}-${{ github.run_id }}-${{ github.run_attempt }}
+        restore-keys: triage-${{ inputs.kind }}-${{ inputs.number }}-
+    - name: Install Copilot
+      shell: bash
+      run: npm install --global @github/copilot@1.0.83
+    - name: Assess the report
+      shell: bash
+      run: ruby "$TRIAGE_ACTION_PATH/lib/assessment.rb"
+      env:
+        TRIAGE_ACTION_PATH: ${{ github.action_path }}
+        GH_TOKEN: ${{ inputs.github-token }}
+        COPILOT_GITHUB_TOKEN: ${{ inputs.copilot-token }}
+        TRIAGE_CONFIG: ${{ inputs.config }}
+        TRIAGE_KIND: ${{ inputs.kind }}
+        TRIAGE_NUMBER: ${{ inputs.number }}
+        TRIAGE_MODEL: ${{ inputs.model }}
+        TRIAGE_DRY_RUN: ${{ inputs.dry-run }}
+        TRIAGE_CACHE_DIR: ${{ runner.temp }}/copilot-triage-cache
