@@ -1,8 +1,9 @@
 # Contributing
 
-Keep the workflow small. Discuss features in an issue before adding more model
-calls, triggers, or dependencies. Public replies matter more than intermediate
-agent activity.
+This project exists because GitHub Agentic Workflows was too much machinery for
+our issue triage. Keep the replacement small. Every extra model call, trigger,
+and dependency needs to earn its place through better replies to reporters.
+Discuss those changes in an issue first.
 
 Run the offline tests:
 

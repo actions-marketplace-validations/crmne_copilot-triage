@@ -1,5 +1,5 @@
 name: Copilot Triage
-description: Label issues and answer questions with bounded Copilot prompts and cached responses.
+description: Simple issue triage without GitHub Agentic Workflows. Small Ruby script, cached Copilot replies.
 author: Carmine Paolino
 branding:
   icon: message-circle

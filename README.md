@@ -1,10 +1,36 @@
 # Copilot Triage
 
-Label issues and answer questions with small, cached Copilot prompts.
+**You shouldn't need 2,000 lines of generated YAML to label an issue.**
+
+Copilot Triage is a small alternative to **GitHub Agentic Workflows** for issues
+and discussions. A Ruby script, a cheap model, and cached answers. Read the
+report, help the person, get out of the way.
+
+## Why this exists
+
+We used [GitHub Agentic Workflows](https://github.com/github/gh-aw) to triage
+[RubyLLM](https://github.com/crmne/ruby_llm) issues. Our
+[compiled workflow](https://github.com/crmne/ruby_llm/blob/d04b4eeb341d76440bee9a029f150b7598e5cfcc/.github/workflows/issue-assessment.lock.yml)
+was **2,035 lines of YAML**. Tool gateways. Agent jobs. A separate threat detector.
+Safe-output jobs. Failure-reporting machinery.
+
+Our [recorded runs](https://github.com/crmne/ruby_llm/actions/runs/33890389416)
+used Sonnet 5 to assess reports and Haiku 4.5 to inspect the output. Both consumed
+Copilot credits. Then the workflow started
+[opening issues about its own failures](https://github.com/crmne/ruby_llm/issues/922)
+and [posting comments about its detector failing](https://github.com/crmne/ruby_llm/issues/913).
+The bot became another thing to maintain. And another source of email.
+
+That is a ridiculous amount of machinery for this job.
+
+GitHub Agentic Workflows is a general agent platform. We needed an issue bot.
+So we removed the platform and kept the job.
+
+## Small on purpose
 
 One prompt chooses labels and an optional clarification. A technical question
-can use one more prompt with relevant documentation. A Ruby script validates
-the result and publishes through GitHub's API.
+can use one more prompt with relevant documentation. Ruby validates the result
+and calls GitHub's API. That's the whole approach.
 
 ```ruby
 item, labels = read_report
@@ -12,10 +38,37 @@ decision = assess(item, labels)
 publish(item, labels, decision)
 ```
 
-This is an independent project using GitHub Copilot CLI. It is not an official
-GitHub product. The first release is a preview: tests verify the workflow's
-behavior and CLI requests with a fake model; live answer quality and end-to-end
-cost have not yet been benchmarked.
+- **Use the Copilot subscription you already pay for.** The default is
+  `gpt-5.6-luna`. Change the model if you want. Keep one billing account.
+- **Spend tokens on the report.** One prompt for triage, one optional prompt for
+  a technical answer. The model gets the relevant text and has no tools.
+- **Reuse the answer.** An identical validated prompt comes from cache with
+  zero model calls. New comments and changed source material are considered.
+- **Give people useful replies.** A missing detail gets one short question.
+  A technical answer gets source links. A complete bug report usually gets a
+  label and silence.
+- **Keep the bot's problems out of your issues.** Model failures go in the job
+  summary. They don't become a new ticket or a string of failure comments.
+- **Read the code yourself.** [One Ruby script](lib/assessment.rb), using the
+  standard library. Your repository keeps a small policy file and calls a
+  shared action. Fix it once, reuse it everywhere.
+
+Here is what we replaced in RubyLLM:
+
+| | Our GitHub Agentic Workflows setup | Copilot Triage |
+| --- | --- | --- |
+| Workflow | 2,035 generated YAML lines plus a Markdown definition | A small caller and one shared Ruby script |
+| Model work | Sonnet 5 assessment plus Haiku 4.5 detection | Luna triage plus an optional answer prompt |
+| GitHub access | Agent tools behind a gateway, followed by safe-output jobs | Ruby validates the decision and makes the API calls |
+| Reassessment | Agent-driven investigation | Cached responses when the prompt is unchanged |
+| Model failures | Bot-created issues and detector comments | Job summary |
+
+Those are differences in scope and machinery, not a claim of identical answer
+quality. This reads five recent comments and up to two source files. It leaves
+duplicate investigations and uncertain answers to a maintainer. We have not yet
+benchmarked live answer quality or end-to-end cost against the old workflow.
+
+**Issue triage can be this simple.**
 
 ## Use it
 
@@ -177,5 +230,8 @@ offline integration test verifies that the actual model request has zero tools.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Tests use fake GitHub/model responses;
 the CLI integration test uses a local fake provider and spends no credits.
+
+The first release is a preview. This independent project uses GitHub Copilot CLI
+and is not an official GitHub product.
 
 MIT licensed. Extracted from [RubyLLM](https://github.com/crmne/ruby_llm).
