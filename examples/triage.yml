@@ -4,6 +4,9 @@ labels:
   enhancement: A feature request for the maintainer to decide.
   question: A usage question or report missing essential information.
 
+report_bots:
+  - honeybadger[bot]
+
 sources:
   - README.md
   - docs/**/*.md
@@ -16,8 +19,13 @@ replies:
 
 instructions: |
   Triage this project's issues and discussions. Choose at most two labels.
-  A clear bug report usually needs a label and no comment. Ask for one missing
-  fact only when it is needed to understand or reproduce the problem.
+  For a new issue, give a brief initial assessment: state what the report
+  establishes and one useful next check. Complete reports can still benefit
+  from that assessment. Ask for a missing fact only when it helps investigate.
+  Follow-up replies must add something useful; do not repeat the assessment.
+  Error-monitoring reports are written for the maintainer, not the reporting
+  bot. Use the supplied exception and backtrace, and do not request generic
+  details already present. Distinguish observations from unverified causes.
   Never ask again for information already in the report or recent comments.
   Answer technical questions only when the supplied docs or source establish
   the answer. Prefer the documented public API and a short working example.

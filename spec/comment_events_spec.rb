@@ -42,7 +42,7 @@ RSpec.describe 'Comment assessments' do
     assessment.run
 
     expect(assessment).to have_received(:mutate).with('addComment', subjectId: 'report-id',
-                                                                   body: 'Which provider are you using?')
+                                                                   body: start_with('Which provider are you using?' + "\n\n"))
   end
 
   {
@@ -142,7 +142,7 @@ RSpec.describe 'Comment assessments' do
       expect(assessment).not_to have_received(:ask_copilot).with(include('An unrelated thread'))
       expect(assessment).to have_received(:mutate).with('addDiscussionComment', discussionId: 'report-id',
                                                                               replyToId: 'parent-id',
-                                                                              body: 'Which provider are you using?')
+                                                                              body: start_with('Which provider are you using?' + "\n\n"))
     end
 
     it 'skips superseded replies without spending credits' do
@@ -186,7 +186,7 @@ RSpec.describe 'Comment assessments' do
 
       expect(assessment).to have_received(:mutate).with('addDiscussionComment', discussionId: 'report-id',
                                                                               replyToId: 'comment-id',
-                                                                              body: 'Which provider are you using?')
+                                                                              body: start_with('Which provider are you using?' + "\n\n"))
     end
   end
 end
