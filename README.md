@@ -84,7 +84,11 @@ name: Triage
 on:
   issues:
     types: [opened, reopened]
+  issue_comment:
+    types: [created]
   discussion:
+    types: [created]
+  discussion_comment:
     types: [created]
 
 permissions:
@@ -93,16 +97,17 @@ permissions:
   discussions: write
 
 concurrency:
-  group: triage-${{ github.event.issue.number || github.event.discussion.number }}
+  group: >-
+    triage-${{ github.event.discussion && 'discussion' || 'issue' }}-${{ github.event.issue.number || github.event.discussion.number }}-${{ github.event.discussion && (github.event.comment.parent_id || github.event.comment.id) || 'report' }}
   cancel-in-progress: false
 
 jobs:
   triage:
-    if: github.event.sender.type != 'Bot'
+    if: github.event.sender.type != 'Bot' && !github.event.issue.pull_request
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: crmne/copilot-triage@v0.1.1
+      - uses: crmne/copilot-triage@v0.2.0
         with:
           copilot-token: ${{ secrets.COPILOT_GITHUB_TOKEN }}
 ```
@@ -141,9 +146,10 @@ Then add these inputs alongside `copilot-token` on the action step:
           dry-run: ${{ github.event_name == 'workflow_dispatch' }}
 ```
 
-Also add `|| inputs.number` to the concurrency group expression. A manual run
-shows its decision in the job summary without changing GitHub. It can preview
-closed reports. Uncached prompts still consume Copilot credits.
+Also add `|| inputs.number` to the concurrency group's number expression and
+`inputs.kind ||` before its kind expression. A manual run shows its decision
+in the job summary without changing GitHub. It can preview closed reports.
+Uncached prompts still consume Copilot credits.
 
 ## Replies
 
@@ -173,17 +179,38 @@ mapping; the action does not crawl the site. Other citations link to the exact
 Git revision read. Models choose source paths from a catalog and cannot invent
 links. Source files outside the checkout are excluded.
 
-Each run reads the current report and its latest five comments. Technical
-answers can read at most two complete source files, up to 48 KB combined.
+Each run reads the current report and its latest five comments. A discussion
+comment event reads that thread's parent and latest five replies, including
+threads older than the latest top-level comments. Answers stay in that thread.
+Technical answers can read at most two complete source files, up to 48 KB combined.
 Duplicate investigations, uncertain answers, and product decisions stay with
 the maintainer. This bounds the work; it does not reproduce a full repository
 investigation or guarantee the same answer as a larger agent.
 
 The action suppresses replies when a maintainer or bot commented most recently.
 It checks the report again before publishing and skips if it changed. Successful
-assessments get a bot 🎉 reaction. Ordinary comments do not trigger the example
-workflow. PRs are outside its scope; GitHub's built-in Copilot code review is a
-separate product.
+assessments get a bot 🎉 reaction. PRs are outside its scope; GitHub's built-in
+Copilot code review is a separate product.
+
+### Follow-up comments
+
+Human comments on open issues and discussions trigger reassessment. If the bot
+asks for a version, it can use the reporter's answer. Bot comments and comments
+from owners, members, and collaborators are skipped before any model call.
+Maintainers can still request a manual assessment.
+
+Comment runs wait 30 seconds before reading GitHub. If a newer comment exists,
+the older event is skipped without calling Copilot. Concurrency keeps one run
+active per issue or discussion thread and replaces older pending runs in that
+conversation. Separate discussion threads are assessed independently. A comment
+arriving during inference invalidates that answer; the next run assesses the
+updated conversation.
+Active runs are allowed to finish so publishing cannot be interrupted halfway.
+
+A new human comment usually changes the prompt and costs a model call. Cache
+hits help repeated assessments of unchanged input. Reassessment does not mean
+another public reply: the same response rules apply, and an exact reply already
+present in the recent conversation is not posted again.
 
 ## Cost and caching
 

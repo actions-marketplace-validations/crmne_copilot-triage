@@ -22,6 +22,10 @@ class IssueAssessment # :nodoc:
   end
 
   def run
+    reason = event_skip_reason
+    return report("Skipped: #{reason}.") if reason
+
+    sleep(30) if comment_event?
     item, labels = read_report
     reason = skip_reason(item)
     return report("Skipped: #{reason}.") if reason
@@ -39,6 +43,25 @@ class IssueAssessment # :nodoc:
   end
 
   private
+
+  def comment_event?
+    %w[issue_comment discussion_comment].include?(@environment['GITHUB_EVENT_NAME'])
+  end
+
+  def event
+    @event ||= JSON.parse(File.read(@environment.fetch('GITHUB_EVENT_PATH')))
+  end
+
+  def event_skip_reason
+    return unless comment_event?
+    return 'pull requests are outside triage' if event.dig('issue', 'pull_request')
+    return 'only new comments trigger triage' unless event['action'] == 'created'
+    return 'comment was posted by a bot' if bot?(event['sender']) || bot?(event.dig('comment', 'user'))
+    return 'a maintainer commented' if maintainer?(event.dig('comment', 'author_association'))
+    return 'report is closed' if event.dig('issue', 'state') == 'closed' || event.dig('discussion', 'closed')
+
+    nil
+  end
 
   def assess(item, labels)
     decision = request(build_prompt(item, labels)) { |response| validate(response, labels) }
@@ -82,7 +105,12 @@ class IssueAssessment # :nodoc:
 
   def skip_reason(item)
     return 'report was opened by a bot' if bot?(item['author'])
-    return 'report is closed' if item['closed'] && !dry_run?
+    return 'report is closed' if item['closed'] && (!dry_run? || comment_event?)
+    return unless comment_event?
+
+    latest = item.fetch('comments').fetch('nodes').last
+    return 'a newer comment superseded this event' unless latest && latest['id'] == event.fetch('comment').fetch('node_id')
+    return 'a maintainer or bot has already answered' if answered?(item)
 
     nil
   end
@@ -95,14 +123,46 @@ class IssueAssessment # :nodoc:
           labels(first: 100) { nodes { id name } }
           #{@kind}(number: $number) {
             id title body closed author { __typename login }
-            comments(last: 5) { nodes { body author { __typename login } authorAssociation } }
+            comments(last: 5) { nodes { #{comment_fields} } }
           }
         }
       }
     GRAPHQL
     repository = github('graphql', query: query, variables: { owner: owner, name: name, number: @number })
                  .fetch('data').fetch('repository')
-    [repository.fetch(@kind), repository.fetch('labels').fetch('nodes')]
+    item = repository.fetch(@kind)
+    read_discussion_thread(item) if @kind == 'discussion' && comment_event?
+    [item, repository.fetch('labels').fetch('nodes')]
+  end
+
+  def comment_fields
+    'id createdAt body author { __typename login } authorAssociation'
+  end
+
+  def read_discussion_thread(item)
+    query = <<~GRAPHQL
+      query($id: ID!) {
+        node(id: $id) {
+          ... on DiscussionComment {
+            discussion { id }
+            ...Thread
+            replyTo { ...Thread }
+          }
+        }
+      }
+      fragment Thread on DiscussionComment {
+        #{comment_fields}
+        replies(last: 5) { nodes { #{comment_fields} } }
+      }
+    GRAPHQL
+    comment = github('graphql', query: query, variables: { id: event.fetch('comment').fetch('node_id') })
+              .fetch('data').fetch('node')
+    raise Skipped, 'discussion comment is unavailable' unless comment && comment.dig('discussion', 'id') == item['id']
+
+    parent = comment['replyTo'] || comment
+    replies = parent.fetch('replies').fetch('nodes')
+    item['reply_to'] = parent.fetch('id')
+    item['comments']['nodes'] = [parent.reject { |key, _| %w[replies replyTo discussion].include?(key) }, *replies]
   end
 
   def build_prompt(item, labels)
@@ -277,9 +337,12 @@ class IssueAssessment # :nodoc:
     ids = labels.filter_map { |label| label['id'] if decision['labels'].include?(label['name']) }
     mutate('addLabelsToLabelable', labelableId: item.fetch('id'), labelIds: ids) if ids.any?
     body = decision['comment'] || @config.fetch('replies')[decision['reply']]
+    body = nil if item.fetch('comments').fetch('nodes').any? { |comment| comment['body'].strip == body&.strip }
     if body
       if @kind == 'discussion'
-        mutate('addDiscussionComment', discussionId: item.fetch('id'), body: body)
+        input = { discussionId: item.fetch('id'), body: body }
+        input[:replyToId] = item['reply_to'] if item['reply_to']
+        mutate('addDiscussionComment', **input)
       else
         mutate('addComment', subjectId: item.fetch('id'), body: body)
       end
@@ -304,12 +367,16 @@ class IssueAssessment # :nodoc:
   end
 
   def bot?(author)
-    author&.fetch('__typename', nil) == 'Bot' || author&.fetch('login')&.end_with?('[bot]')
+    author && (author['__typename'] == 'Bot' || author['type'] == 'Bot' || author['login']&.end_with?('[bot]'))
+  end
+
+  def maintainer?(association)
+    %w[OWNER MEMBER COLLABORATOR].include?(association)
   end
 
   def answered?(item)
     comment = item.fetch('comments').fetch('nodes').last
-    comment && (bot?(comment['author']) || %w[OWNER MEMBER COLLABORATOR].include?(comment['authorAssociation']))
+    comment && (bot?(comment['author']) || maintainer?(comment['authorAssociation']))
   end
 
   def dry_run?
