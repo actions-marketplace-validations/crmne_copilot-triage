@@ -3,14 +3,16 @@
 **You shouldn't need 2,000 lines of generated YAML to label an issue.**
 
 Copilot Triage is a small alternative to **GitHub Agentic Workflows** for issues
-and discussions. A Ruby script, a cheap model, and cached answers. Read the
-report, help the person, get out of the way.
+and discussions, built for [RubyLLM](https://github.com/crmne/ruby_llm) and
+[Spotifast](https://github.com/crmne/spotifast). A Ruby script, a cheap model,
+and cached answers. Read the report, help the person, get out of the way.
 
 ## Why this exists
 
 We used [GitHub Agentic Workflows](https://github.com/github/gh-aw) to triage
-[RubyLLM](https://github.com/crmne/ruby_llm) issues. Our
-[compiled workflow](https://github.com/crmne/ruby_llm/blob/d04b4eeb341d76440bee9a029f150b7598e5cfcc/.github/workflows/issue-assessment.lock.yml)
+[RubyLLM](https://github.com/crmne/ruby_llm) and
+[Spotifast](https://github.com/crmne/spotifast) issues and discussions. In
+RubyLLM alone, the [compiled workflow](https://github.com/crmne/ruby_llm/blob/d04b4eeb341d76440bee9a029f150b7598e5cfcc/.github/workflows/issue-assessment.lock.yml)
 was **2,035 lines of YAML**. Tool gateways. Agent jobs. A separate threat detector.
 Safe-output jobs. Failure-reporting machinery.
 
@@ -23,13 +25,14 @@ The bot became another thing to maintain. And another source of email.
 
 That is a ridiculous amount of machinery for this job.
 
-GitHub Agentic Workflows is a general agent platform. We needed an issue bot.
+GitHub Agentic Workflows is a general agent platform. We needed a bot for
+issues and discussions.
 So we removed the platform and kept the job.
 
 ## Small on purpose
 
-One prompt chooses labels and a short assessment or clarification. A technical question
-can use one more prompt with relevant documentation. Ruby validates the result
+One prompt chooses labels and a short assessment or clarification. A technical
+question can use one more prompt with relevant documentation. Ruby validates the result
 and calls GitHub's API. That's the whole approach.
 
 ```ruby
@@ -292,4 +295,5 @@ the CLI integration test uses a local fake provider and spends no credits.
 The first release is a preview. This independent project uses GitHub Copilot CLI
 and is not an official GitHub product.
 
-MIT licensed. Extracted from [RubyLLM](https://github.com/crmne/ruby_llm).
+MIT licensed. Built for [RubyLLM](https://github.com/crmne/ruby_llm) and
+[Spotifast](https://github.com/crmne/spotifast), reusable in your repositories.
