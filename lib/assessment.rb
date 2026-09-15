@@ -94,8 +94,8 @@ class IssueAssessment # :nodoc:
         repository(owner: $owner, name: $name) {
           labels(first: 100) { nodes { id name } }
           #{@kind}(number: $number) {
-            id title body closed author { login }
-            comments(last: 5) { nodes { body author { login } authorAssociation } }
+            id title body closed author { __typename login }
+            comments(last: 5) { nodes { body author { __typename login } authorAssociation } }
           }
         }
       }
@@ -304,7 +304,7 @@ class IssueAssessment # :nodoc:
   end
 
   def bot?(author)
-    author&.fetch('login')&.end_with?('[bot]')
+    author&.fetch('__typename', nil) == 'Bot' || author&.fetch('login')&.end_with?('[bot]')
   end
 
   def answered?(item)

@@ -121,6 +121,26 @@ RSpec.describe IssueAssessment, type: :task do
     expect(assessment).not_to have_received(:ask_copilot)
   end
 
+  it 'recognizes GraphQL bot authors whose login has no bot suffix' do
+    item['author'] = { '__typename' => 'Bot', 'login' => 'github-actions' }
+
+    assessment.run
+
+    expect(assessment).not_to have_received(:ask_copilot)
+    expect(assessment).not_to have_received(:mutate)
+  end
+
+  it 'does not reply after a GraphQL bot without a login suffix' do
+    item['comments']['nodes'] << { 'body' => 'Which version?',
+                                   'author' => { '__typename' => 'Bot', 'login' => 'github-actions' },
+                                   'authorAssociation' => 'NONE' }
+    allow(assessment).to receive(:ask_copilot).and_return(JSON.generate(labels: [], reply: 'version', files: []))
+
+    assessment.run
+
+    expect(assessment).not_to have_received(:mutate).with('addComment', anything)
+  end
+
   it 'can preview a closed report for evaluation without publishing' do
     environment['TRIAGE_DRY_RUN'] = 'true'
     item['closed'] = true
