@@ -1,5 +1,5 @@
 name: Copilot Triage
-description: Simple issue triage without GitHub Agentic Workflows. Small Ruby script, cached Copilot replies.
+description: Simple issue triage without GitHub Agentic Workflows. Small Ruby code, cached Copilot replies.
 author: Carmine Paolino
 branding:
   icon: message-circle
@@ -10,7 +10,7 @@ inputs:
     description: Token with Copilot Requests permission and an available Copilot allowance.
     required: true
   github-token:
-    description: Token for reading reports and publishing labels and comments.
+    description: Token for reading reports, publishing labels and comments, and optionally closing duplicates.
     default: ${{ github.token }}
   config:
     description: Repository-relative policy file on the default branch.

@@ -1,3 +1,4 @@
+duplicates: 'off'
 labels:
   bug: A reproducible fault in RubyLLM, rather than the application or provider.
   capabilities: Missing or incorrect model metadata, pricing, limits, or capabilities.
